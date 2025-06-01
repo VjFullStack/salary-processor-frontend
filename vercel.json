@@ -17,6 +17,7 @@
     { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
-    "REACT_APP_API_URL": "https://your-backend-url.onrender.com/api"
+    "REACT_APP_API_URL": "https://salary-processor-backend.onrender.com/api",
+    "CI": "false"
   }
 }
