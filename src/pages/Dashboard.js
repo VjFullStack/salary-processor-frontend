@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Box, 
   Typography, 
@@ -26,7 +26,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Stack
+
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -146,7 +146,7 @@ const Dashboard = () => {
   const [totalDays, setTotalDays] = useState(30); // Default to 30 days
   const [daysLoading, setDaysLoading] = useState(false);
   const fileInputRef = useRef(null);
-  const theme = useTheme();
+  // const theme = useTheme();
   
   useEffect(() => {
     // Trigger fade-in animation after component mounts
@@ -467,8 +467,8 @@ const Dashboard = () => {
     }
   };
   
-  // Function to handle bulk PDF download
-  const handleBulkPdfDownload = async () => {
+  // Function to handle bulk PDF download - will be implemented in future releases
+  const handleBulkPdfDownload = async () => { // eslint-disable-line no-unused-vars
     if (!salaryResults || salaryResults.length === 0) {
       setError('No salary data to download');
       return;
