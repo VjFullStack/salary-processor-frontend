@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sample Excel Format for Salary Processor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #1976d2;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .note {
+            background-color: #fff9e6;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+        }
+        code {
+            background-color: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sample Excel Format for Salary Processor</h1>
+    
+    <p>This document explains the expected format for the Excel file used with the Salary Processor application.</p>
+    
+    <div class="note">
+        <strong>Important:</strong> Your Excel file must match this exact format to be processed correctly.
+    </div>
+    
+    <h2>Excel Structure</h2>
+    <p>The Excel file should contain attendance data with the following columns:</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Column</th>
+                <th>Description</th>
+                <th>Format</th>
+                <th>Example</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Employee ID</td>
+                <td>Unique identifier for the employee</td>
+                <td>String (must match IDs in system)</td>
+                <td>EMP001</td>
+            </tr>
+            <tr>
+                <td>Date</td>
+                <td>Date of attendance record</td>
+                <td>Date format (MM/DD/YYYY)</td>
+                <td>06/01/2025</td>
+            </tr>
+            <tr>
+                <td>In Time</td>
+                <td>Time employee arrived</td>
+                <td>Time format (HH:MM)</td>
+                <td>09:00</td>
+            </tr>
+            <tr>
+                <td>Out Time</td>
+                <td>Time employee left</td>
+                <td>Time format (HH:MM)</td>
+                <td>17:00</td>
+            </tr>
+            <tr>
+                <td>Status</td>
+                <td>Attendance status code</td>
+                <td>String (P=Present, A=Absent, WO=Week Off, WOP=Week Off Present)</td>
+                <td>P</td>
+            </tr>
+            <tr>
+                <td>Hours Worked</td>
+                <td>Total hours worked (optional)</td>
+                <td>Numeric</td>
+                <td>8.0</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <h2>Sample Data</h2>
+    <p>Here's a sample of what your Excel data should look like:</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Employee ID</th>
+                <th>Date</th>
+                <th>In Time</th>
+                <th>Out Time</th>
+                <th>Status</th>
+                <th>Hours Worked</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>EMP001</td>
+                <td>06/01/2025</td>
+                <td>09:00</td>
+                <td>17:00</td>
+                <td>P</td>
+                <td>8.0</td>
+            </tr>
+            <tr>
+                <td>EMP001</td>
+                <td>06/02/2025</td>
+                <td>09:15</td>
+                <td>17:30</td>
+                <td>P</td>
+                <td>8.25</td>
+            </tr>
+            <tr>
+                <td>EMP001</td>
+                <td>06/03/2025</td>
+                <td></td>
+                <td></td>
+                <td>A</td>
+                <td>0.0</td>
+            </tr>
+            <tr>
+                <td>EMP001</td>
+                <td>06/04/2025</td>
+                <td>08:45</td>
+                <td>17:15</td>
+                <td>P</td>
+                <td>8.5</td>
+            </tr>
+            <tr>
+                <td>EMP002</td>
+                <td>06/01/2025</td>
+                <td>09:30</td>
+                <td>18:00</td>
+                <td>P</td>
+                <td>8.5</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <h2>Important Notes</h2>
+    <ul>
+        <li>The first row of your Excel file should be a header row with these column names.</li>
+        <li>Employee IDs must match the IDs in the system (EMP001, EMP002, EMP003, EMP004, EMP005).</li>
+        <li>Late arrivals (after 10:00 AM) will be automatically flagged as late and may affect salary calculations.</li>
+        <li>The system calculates salary based on attendance, worked hours, and late marks.</li>
+    </ul>
+    
+    <div class="note">
+        <p><strong>Download Sample:</strong> You can download a <a href="sample-attendance.xlsx">sample Excel template</a> to get started.</p>
+    </div>
+</body>
+</html>

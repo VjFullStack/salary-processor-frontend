@@ -1,0 +1,40 @@
+Excel File Format Requirements:
+
+1. Headers must be in the first row with these exact names:
+   - "Employee ID"
+   - "Date"
+   - "In Time"
+   - "Out Time"
+   - "Status"
+   - "Hours Worked"
+
+2. Employee IDs must match those in the system:
+   - EMP001
+   - EMP002
+   - EMP003
+   - EMP004
+   - EMP005
+
+3. Date formats that work:
+   - MM/DD/YYYY (06/01/2025)
+   - DD/MM/YYYY (01/06/2025)
+   - YYYY-MM-DD (2025-06-01)
+
+4. Time formats:
+   - HH:MM (09:00)
+
+5. Status values:
+   - P (Present)
+   - A (Absent)
+   - WO (Week Off)
+   - WOP (Week Off Present)
+
+6. Hours Worked:
+   - Numeric value (8.0)
+
+Sample data rows:
+EMP001,06/01/2025,09:00,17:00,P,8.0
+EMP001,06/02/2025,09:15,17:15,P,8.0
+EMP002,06/01/2025,09:30,17:30,P,8.0
+EMP003,06/01/2025,10:00,18:00,P,8.0
+EMP001,06/03/2025,,,A,0.0

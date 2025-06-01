@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test File Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-container {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .upload-container:hover {
+            border-color: #1976d2;
+        }
+        button {
+            background-color: #1976d2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #1565c0;
+        }
+        #result {
+            margin-top: 20px;
+            border: 1px solid #eee;
+            padding: 10px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Salary Processor Test Upload</h1>
+    
+    <div class="upload-container" id="dropZone">
+        <p>Drag & Drop an Excel file here or click to select</p>
+        <input type="file" id="fileInput" accept=".xls,.xlsx" style="display: none;">
+        <button id="selectFileBtn">Select File</button>
+    </div>
+    
+    <div id="fileInfo"></div>
+    
+    <button id="processBtn" disabled>Process File</button>
+    
+    <div id="result"></div>
+
+    <script>
+        // DOM Elements
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const selectFileBtn = document.getElementById('selectFileBtn');
+        const fileInfo = document.getElementById('fileInfo');
+        const processBtn = document.getElementById('processBtn');
+        const result = document.getElementById('result');
+        
+        // Selected file
+        let selectedFile = null;
+        
+        // Event listeners
+        selectFileBtn.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#1976d2';
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = '#ccc';
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#ccc';
+            
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+        
+        processBtn.addEventListener('click', () => {
+            if (selectedFile) {
+                processFile(selectedFile);
+            }
+        });
+        
+        // Handle file selection
+        function handleFile(file) {
+            console.log('File selected:', file.name, file.type, file.size);
+            
+            if (!file.name.endsWith('.xls') && !file.name.endsWith('.xlsx')) {
+                fileInfo.innerHTML = '<p style="color: red;">Please select an Excel file (.xls or .xlsx)</p>';
+                selectedFile = null;
+                processBtn.disabled = true;
+                return;
+            }
+            
+            selectedFile = file;
+            fileInfo.innerHTML = `<p>Selected file: <strong>${file.name}</strong> (${formatFileSize(file.size)})</p>`;
+            processBtn.disabled = false;
+            
+            logEvent(`File selected: ${file.name} (${file.type}, ${formatFileSize(file.size)})`);
+        }
+        
+        // Process the file
+        function processFile(file) {
+            logEvent(`Processing file: ${file.name}`);
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // Get the auth token from localStorage (if available)
+            const token = localStorage.getItem('token') || '';
+            
+            logEvent(`Auth token: ${token ? token.substring(0, 10) + '...' : 'No token found'}`);
+            logEvent('Sending request to API...');
+            
+            // Make the API request
+            fetch('http://localhost:8080/api/salary/process', {
+                method: 'POST',
+                headers: {
+                    'Authorization': token ? `Bearer ${token}` : ''
+                },
+                body: formData
+            })
+            .then(response => {
+                logEvent(`Response status: ${response.status} ${response.statusText}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                return response.json();
+            })
+            .then(data => {
+                logEvent('Success! API response:');
+                logEvent(JSON.stringify(data, null, 2));
+            })
+            .catch(error => {
+                logEvent(`Error: ${error.message}`);
+            });
+        }
+        
+        // Helper functions
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' bytes';
+            else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+            else return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+        
+        function logEvent(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            result.innerHTML += `[${timestamp}] ${message}\n`;
+            result.scrollTop = result.scrollHeight;
+            console.log(`[${timestamp}] ${message}`);
+        }
+        
+        // Log initial state
+        logEvent('Test upload page loaded');
+        logEvent(`API URL: http://localhost:8080/api/salary/process`);
+    </script>
+</body>
+</html>
