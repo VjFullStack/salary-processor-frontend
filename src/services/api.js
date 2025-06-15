@@ -3,9 +3,12 @@ import axios from 'axios';
 // Define base URL for API endpoints
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://salary-processor-backend.onrender.com/api';
 
+// Remove duplicate /api if it exists
+const normalizedBaseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
+
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: normalizedBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },

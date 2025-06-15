@@ -17,7 +17,7 @@ export const useEmployeeData = () => {
         Authorization: `Bearer ${token}`
       }
     };
-    const response = await axios.get(`${API_URL}/api/employee/salary`, config);
+    const response = await axios.get(`${API_URL}/employee/salary`, config);
     return response.data;
   };
 
