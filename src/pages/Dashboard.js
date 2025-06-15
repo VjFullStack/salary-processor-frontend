@@ -36,6 +36,9 @@ import PeopleIcon from '@mui/icons-material/People';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import GroupIcon from '@mui/icons-material/Group';
 import { salaryService } from '../services/api';
 // No need for isDemoMode in production
 
@@ -542,10 +545,49 @@ const Dashboard = () => {
               <Zoom in={true} timeout={500}>
                 <UploadCard>
                   <CardContent>
-                    <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {file ? `${(file.size / 1024).toFixed(2)} KB` : 'or click to browse'}
-                    </Typography>
+                    <Box 
+                      sx={{
+                        border: '2px dashed',
+                        borderColor: isDragging ? 'primary.main' : 'divider',
+                        borderRadius: 2,
+                        p: 3,
+                        mb: 2,
+                        textAlign: 'center',
+                        bgcolor: isDragging ? 'action.hover' : 'background.paper',
+                        transition: 'all 0.2s ease',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                          borderColor: 'primary.light'
+                        }
+                      }}
+                      onClick={handleFileUploadClick}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                    >
+                      {file ? (
+                        <>
+                          <CheckCircleIcon color="success" sx={{ fontSize: 40, mb: 1 }} />
+                          <Typography variant="subtitle1" gutterBottom fontWeight="medium">
+                            {file.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {(file.size / 1024).toFixed(2)} KB
+                          </Typography>
+                        </>
+                      ) : (
+                        <>
+                          <CloudUploadIcon sx={{ fontSize: 40, mb: 1, color: 'action.active' }} />
+                          <Typography variant="subtitle1" gutterBottom fontWeight="medium">
+                            Drop Excel file here
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            or click to browse
+                          </Typography>
+                        </>
+                      )}
+                    </Box>
                     
                     <input
                       type="file"
@@ -554,7 +596,6 @@ const Dashboard = () => {
                       accept=".xls,.xlsx"
                       style={{ display: 'none' }}
                     />
-                  </Box>
                   
                   <Box sx={{ mb: 3 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
