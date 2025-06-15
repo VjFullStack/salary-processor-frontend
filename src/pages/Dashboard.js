@@ -265,6 +265,10 @@ const Dashboard = () => {
 
   // Calculate metrics from salary results
   const calculateMetrics = (results) => {
+    if (!results || results.length === 0) {
+      setProcessedData(null);
+      return;
+    }
     const totalEmployees = results.length;
     const totalSalary = results.reduce((sum, item) => sum + item.finalPayableSalary, 0);
     const averageSalary = totalSalary / totalEmployees;
@@ -364,7 +368,7 @@ const Dashboard = () => {
   
   // Function to handle bulk PDF download of all salary slips
   const handleBulkPdfDownload = async () => { // eslint-disable-line no-unused-vars
-    if (!salaryResults || salaryResults.length === 0) {
+    if (!salaryResults || !Array.isArray(salaryResults) || salaryResults.length === 0) {
       setError('No salary data to download');
       return;
     }
@@ -658,8 +662,8 @@ const Dashboard = () => {
             )}
           </Grid>
           
-          {salaryResults.length > 0 && (
-            <Fade in={salaryResults.length > 0} timeout={1000}>
+          {salaryResults && salaryResults.length > 0 && (
+            <Fade in={!!salaryResults && salaryResults.length > 0} timeout={1000}>
               <Box sx={{ mt: 4 }}>
                 <Typography variant="h5" fontWeight="600" color="text.primary" gutterBottom>
                   Salary Results
