@@ -46,9 +46,14 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+
 function App() {
   return (
-    <ThemeProvider theme={theme}>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
       <CssBaseline />
       <div className="App">
         <Header />
@@ -65,7 +70,8 @@ function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
-    </ThemeProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 

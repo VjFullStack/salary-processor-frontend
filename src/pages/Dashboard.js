@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useEmployeeData } from '../hooks/useEmployeeData';
 import { 
   Box, 
   Typography, 
@@ -21,7 +22,7 @@ import {
   Tooltip,
   Fade,
   Zoom,
-  useTheme,
+  // useTheme,
   FormControl,
   InputLabel,
   Select,
@@ -138,9 +139,20 @@ const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
 const Dashboard = () => {
   const [file, setFile] = useState(null);
   const [error, setError] = useState('');
+  // Use React Query loading instead
   const [loading, setLoading] = useState(false);
-  const [salaryResults, setSalaryResults] = useState([]);
+  // Remove salaryResults state, use React Query instead
+  // const [salaryResults, setSalaryResults] = useState([]);
   const [processedData, setProcessedData] = useState(null);
+
+  // React Query: fetch and cache employee data (salary results)
+  const {
+    data: salaryResults,
+    isLoading: queryLoading,
+    error: queryError,
+    refetch: refetchEmployeeData
+  } = useEmployeeData(file, totalDays, !!file);
+
   const [isDragging, setIsDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
   const [totalDays, setTotalDays] = useState(30); // Default to 30 days
@@ -278,8 +290,9 @@ const Dashboard = () => {
   
   // Process demo data function
   const processDemoData = () => {
-    setSalaryResults(mockSalaryData.employeeResults);
-    calculateMetrics(mockSalaryData.employeeResults);
+    if (mockSalaryData.employeeResults) {
+      calculateMetrics(mockSalaryData.employeeResults);
+    }
   };
   
   // Auto-load mock data in demo mode
@@ -287,22 +300,7 @@ const Dashboard = () => {
     if (isDemoMode()) {
       // Simulate loading delay
       const timer = setTimeout(() => {
-        // Set salary results
-        setSalaryResults(mockSalaryData.employeeResults);
-        
-        // Calculate summary data for metrics
-        const totalEmployees = mockSalaryData.employeeResults.length;
-        const totalSalary = mockSalaryData.employeeResults.reduce((sum, item) => sum + item.finalPayableSalary, 0);
-        const averageSalary = totalSalary / totalEmployees;
-        const totalLateMarks = mockSalaryData.employeeResults.reduce((sum, item) => sum + item.lateMarks, 0);
-        
-        // Set processed data with calculated metrics
-        setProcessedData({
-          totalEmployees,
-          totalSalary,
-          averageSalary,
-          totalLateMarks
-        });
+        calculateMetrics(mockSalaryData.employeeResults);
       }, 1000);
       return () => clearTimeout(timer);
     }
@@ -325,105 +323,19 @@ const Dashboard = () => {
     }
   };
   
+  // Use React Query - just trigger refetch and process metrics
   const handleProcessSalary = async () => {
-    console.log('Process salary button clicked');
-    console.log('File object:', file);
-    console.log('File name:', file?.name);
-    console.log('File type:', file?.type);
-    console.log('File size:', file?.size);
-    console.log('Using total days:', totalDays);
-    
-    // Log the token information to verify authentication
-    const token = localStorage.getItem('token');
-    console.log('Auth token exists:', !!token);
-    console.log('Auth token first 10 chars:', token ? token.substring(0, 10) + '...' : 'No token');
-    
     if (!file) {
-      console.error('No file in state');
       setError('Please upload a file first');
       return;
     }
-
-    setLoading(true);
     setError('');
-
-    // Create a form data object for the file upload
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    // Log all entries in the FormData (for debugging)
-    console.log('FormData created, entries:');
-    for (let pair of formData.entries()) {
-      console.log(pair[0] + ': ' + (pair[1] instanceof File ? 
-        `File(${pair[1].name}, ${pair[1].type}, ${pair[1].size} bytes)` : pair[1]));
-    }
-
-    try {
-      console.log('Making API call to process salary with total days:', totalDays);
-      console.log('Making API call with file:', file.name);
-      console.log('API URL:', process.env.REACT_APP_API_URL || 'http://localhost:8080/api');
-      
-      // Make direct API call instead of using the service to debug
-      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:8080/api'}/salary/process?totalDays=${totalDays}`;
-      console.log('Full API URL:', apiUrl);
-      
-      // For debugging, try a direct fetch request
-      console.log('Attempting direct fetch call to API...');
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: formData
-      });
-      
-      console.log('API Response status:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      
-      const results = await response.json();
-      console.log('API response received:', results);
-      const employeeResults = results.employeeResults || results;
-      
-      // Debug coefficients
-      console.log('Coefficient debugging:');
-      employeeResults.forEach(emp => {
-        console.log(`Employee ${emp.employeeName}: Actual=${emp.actualWorkedHours}, Expected=${emp.expectedHours}, Coefficient=${emp.coefficient}`);
-        // Calculate what the coefficient should be
-        const calculatedCoeff = emp.actualWorkedHours / emp.expectedHours;
-        console.log(`Calculated coefficient should be: ${calculatedCoeff} (${(calculatedCoeff * 100).toFixed(2)}%)`);
-        
-        // Fix the coefficient if needed - this will directly fix the display
-        if (Math.abs((emp.coefficient * 100) - calculatedCoeff * 100) > 1) {
-          console.log(`Fixing coefficient from ${emp.coefficient} to ${calculatedCoeff}`);
-          emp.coefficient = calculatedCoeff;
-        }
-      });
-      
-      setSalaryResults(employeeResults);
-      
-      // Calculate summary data
-      const totalEmployees = employeeResults.length;
-      const totalSalary = employeeResults.reduce((sum, item) => sum + item.finalPayableSalary, 0);
-      const averageSalary = totalSalary / totalEmployees;
-      const totalLateMarks = employeeResults.reduce((sum, item) => sum + item.lateMarks, 0);
-      
-      setProcessedData({
-        totalEmployees,
-        totalSalary,
-        averageSalary,
-        totalLateMarks
-      });
-    } catch (err) {
-      console.error('API call failed:', err);
-      console.error('Error details:', err.message, err.stack);
-      setError('Failed to process salary data. ' + (err.message || ''));
-    } finally {
-      setLoading(false);
+    await refetchEmployeeData();
+    if (salaryResults) {
+      calculateMetrics(salaryResults);
     }
   };
+
 
   const handleDownloadPdf = async (employeeId) => {
     try {
@@ -736,13 +648,9 @@ const Dashboard = () => {
                           Process Data ({totalDays} days)
                         </ActionButton>
                       </Grid>
-                    </Grid>
-                  </CardContent>
-                </UploadCard>
-              </Zoom>
             </Grid>
-            
-            {processedData && (
+
+            {salaryResults && processedData && (
               <Grid item xs={12} md={7} lg={8}>
                 <Zoom in={!!processedData} timeout={500}>
                   <Grid container spacing={3}>
@@ -756,14 +664,60 @@ const Dashboard = () => {
                             </Typography>
                           </Box>
                           <Typography variant="h4" fontWeight="600">
-                            {processedData.totalEmployees}
+                            {processedData ? processedData.totalEmployees : 0}
                           </Typography>
                         </CardContent>
                       </MetricCard>
                     </Grid>
-                    
                     <Grid item xs={12} sm={6} lg={3}>
                       <MetricCard color="secondary">
+                        <CardContent sx={{ p: 3 }}>
+                          <Box display="flex" alignItems="center" mb={1}>
+                            <AccountBalanceWalletIcon sx={{ mr: 1, opacity: 0.8 }} />
+                            <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                              Total Payout
+                            </Typography>
+                          </Box>
+                          <Typography variant="h4" fontWeight="600">
+                            {formatCurrency(processedData.totalSalary)}
+                          </Typography>
+                        </CardContent>
+                      </MetricCard>
+                    </Grid>
+                    <Grid item xs={12} sm={6} lg={3}>
+                      <MetricCard color="success">
+                        <CardContent sx={{ p: 3 }}>
+                          <Box display="flex" alignItems="center" mb={1}>
+                            <TrendingUpIcon sx={{ mr: 1, opacity: 0.8 }} />
+                            <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                              Average Salary
+                            </Typography>
+                          </Box>
+                          <Typography variant="h4" fontWeight="600">
+                            {formatCurrency(processedData.averageSalary)}
+                          </Typography>
+                        </CardContent>
+                      </MetricCard>
+                    </Grid>
+                    <Grid item xs={12} sm={6} lg={3}>
+                      <MetricCard color="warning">
+                        <CardContent sx={{ p: 3 }}>
+                          <Box display="flex" alignItems="center" mb={1}>
+                            <AccessTimeIcon sx={{ mr: 1, opacity: 0.8 }} />
+                            <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                              Late Marks
+                            </Typography>
+                          </Box>
+                          <Typography variant="h4" fontWeight="600">
+                            {processedData.totalLateMarks}
+                          </Typography>
+                        </CardContent>
+                      </MetricCard>
+                    </Grid>
+                  </Grid>
+                </Zoom>
+              </Grid>
+            )}
                         <CardContent sx={{ p: 3 }}>
                           <Box display="flex" alignItems="center" mb={1}>
                             <AccountBalanceWalletIcon sx={{ mr: 1, opacity: 0.8 }} />
@@ -809,13 +763,8 @@ const Dashboard = () => {
                         </CardContent>
                       </MetricCard>
                     </Grid>
-                  </Grid>
-                </Zoom>
-              </Grid>
-            )}
           </Grid>
-          
-          {salaryResults.length > 0 && (
+          {Array.isArray(salaryResults) && salaryResults.length > 0 && (
             <Fade in={salaryResults.length > 0} timeout={1000}>
               <Box sx={{ mt: 4 }}>
                 <Typography variant="h5" fontWeight="600" color="text.primary" gutterBottom>

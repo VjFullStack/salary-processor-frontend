@@ -250,7 +250,7 @@ const Login = () => {
                   border: '1px dashed rgba(25, 118, 210, 0.3)'
                 }}>
                   <Typography variant="body2" color="text.secondary" align="center">
-                    <strong>Demo credentials:</strong> admin / admin123
+
                   </Typography>
                 </Box>
               </Grid>
