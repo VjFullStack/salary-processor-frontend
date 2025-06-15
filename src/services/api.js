@@ -123,4 +123,12 @@ export const salaryService = {
     });
     return response.data;
   },
+  
+  // Generate and download PDF salary slips in bulk (combines all in one PDF)
+  generateBulkPdf: async () => {
+    const response = await api.get('/salary/bulk-pdf', {
+      responseType: 'blob', // Important for handling binary data
+    });
+    return response;
+  },
 };

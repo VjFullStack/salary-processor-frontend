@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
 /**
  * Custom hook to fetch and cache employee salary data using React Query
@@ -8,16 +8,11 @@ import { useAuth } from '../context/AuthContext';
  */
 export const useEmployeeData = () => {
   const { token } = useAuth();
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 
   // Function to fetch employee data
   const fetchEmployeeData = async () => {
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    };
-    const response = await axios.get(`${API_URL}/employee/salary`, config);
+    // The api instance already handles authorization headers via interceptors
+    const response = await api.get('/employee/salary');
     return response.data;
   };
 
