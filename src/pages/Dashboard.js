@@ -162,8 +162,12 @@ const Dashboard = () => {
   
   // Calculate processed metrics whenever salary results change
   useEffect(() => {
+    console.log('Salary results updated:', salaryResults);
     if (salaryResults && salaryResults.length > 0) {
+      console.log('Calculating metrics for', salaryResults.length, 'employees');
       calculateMetrics(salaryResults);
+    } else {
+      console.log('No salary results available yet');
     }
   }, [salaryResults]);
   
@@ -321,17 +325,28 @@ const Dashboard = () => {
       
       // Use the salary service to process the file
       const response = await salaryService.processSalary(file, totalDays);
-      console.log('Salary processing completed successfully');
+      console.log('Salary processing response:', response);
       
-      // Refetch the employee data using React Query
-      // This will update the cache and trigger a re-render
-      await refetchEmployeeData();
+      // If we have response data directly, update the UI immediately
+      if (response && Array.isArray(response)) {
+        console.log('Got salary data directly, calculating metrics');
+        calculateMetrics(response);
+      }
+      
+      // Refetch the employee data using React Query to ensure cache is updated
+      console.log('Refetching employee data...');
+      const refreshedData = await refetchEmployeeData();
+      console.log('Refetched data:', refreshedData);
       
       // Clear the file input after successful processing
       setFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+      
+      // Show success message
+      setSuccessMessage('Salary data processed successfully!');
+      setTimeout(() => setSuccessMessage(''), 5000); // Clear after 5 seconds
     } catch (err) {
       console.error('Failed to process salary data:', err);
       setError('Failed to process salary data: ' + (err.message || ''));
