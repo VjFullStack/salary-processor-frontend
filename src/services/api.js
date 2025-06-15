@@ -57,12 +57,47 @@ export const salaryService = {
       url = `/salary/process?totalDays=${totalDays}`;
     }
     
+    console.log('Processing salary with URL:', url);
+    console.log('Total days:', totalDays);
+    
     const response = await api.post(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data.employeeResults || response.data;
+    
+    console.log('Salary processing API response:', response.data);
+    
+    // Helper function to map employee data with field name fallbacks
+    const mapEmployeeData = (employee) => ({
+      employeeId: employee.employeeId || employee.id || '',
+      employeeName: employee.employeeName || employee.name || '',
+      monthlySalary: employee.monthlySalary || employee.salary || 0,
+      actualWorkedHours: employee.actualWorkedHours || employee.workedHours || 0,
+      coefficient: employee.coefficient || employee.attendanceCoefficient || 0,
+      lateMarks: employee.lateMarks || employee.lateCount || 0,
+      finalPayableSalary: employee.finalPayableSalary || employee.finalSalary || 0
+    });
+    
+    // Handle different API response formats
+    let employeeArray = null;
+    
+    // Case 1: API returns array directly
+    if (response.data && Array.isArray(response.data)) {
+      employeeArray = response.data;
+    }
+    // Case 2: API returns object with employeeResults property
+    else if (response.data && response.data.employeeResults && Array.isArray(response.data.employeeResults)) {
+      employeeArray = response.data.employeeResults;
+    }
+    
+    // If we found an array in either format, map it
+    if (employeeArray) {
+      return employeeArray.map(mapEmployeeData);
+    }
+    
+    // Fallback
+    return response.data;
   },
   
   // Set the total working days

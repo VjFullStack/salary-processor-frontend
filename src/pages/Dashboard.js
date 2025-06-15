@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useEmployeeData } from '../hooks/useEmployeeData';
+import React, { useState, useEffect, useRef } from 'react';
+import { salaryService } from '../services/api';
 import { 
   Box, 
-  Typography, 
+  Typography,
   Button, 
   Paper, 
   Table,
@@ -148,14 +148,10 @@ const Dashboard = () => {
   const [daysLoading, setDaysLoading] = useState(false);
   const fileInputRef = useRef(null);
   
-  // Use React Query hook to fetch and cache employee data
-  const {
-    data: salaryResults,
-    isLoading: dataLoading,
-    isError: dataError,
-    refetch: refetchEmployeeData,
-    error: employeeDataError
-  } = useEmployeeData();
+  // State to hold processed salary data
+  const [salaryResults, setSalaryResults] = useState([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState(false);
 
   // Derived state for processed metrics from salary results
   const [processedData, setProcessedData] = useState(null);
@@ -194,12 +190,7 @@ const Dashboard = () => {
     loadTotalDays();
   }, []);
   
-  // Display error from React Query if any
-  useEffect(() => {
-    if (employeeDataError) {
-      setError('Error loading employee data: ' + employeeDataError.message);
-    }
-  }, [employeeDataError]);
+  // Initial data loading can be removed since we now use the process endpoint data directly
 
   const handleFileChange = (e) => {
     console.log('File input changed:', e.target.files);
@@ -306,17 +297,17 @@ const Dashboard = () => {
   };
   
   const handleProcessSalary = async () => {
-    console.log('Process salary button clicked');
-    
     if (!file) {
-      setError('Please upload a file first');
+      setError('Please select a file to process');
       return;
     }
-
+    
     setProcessing(true);
+    setDataLoading(true);
     setError('');
-
-    // Create a form data object for the file upload
+    
+    console.log('Processing file:', file.name);
+    
     const formData = new FormData();
     formData.append('file', file);
 
@@ -327,16 +318,21 @@ const Dashboard = () => {
       const response = await salaryService.processSalary(file, totalDays);
       console.log('Salary processing response:', response);
       
-      // If we have response data directly, update the UI immediately
-      if (response && Array.isArray(response)) {
-        console.log('Got salary data directly, calculating metrics');
-        calculateMetrics(response);
-      }
+      // Sort the data by employeeId numerically
+      let processedData = [];
       
-      // Refetch the employee data using React Query to ensure cache is updated
-      console.log('Refetching employee data...');
-      const refreshedData = await refetchEmployeeData();
-      console.log('Refetched data:', refreshedData);
+      if (response && Array.isArray(response)) {
+        // Sort the array by employeeId numerically
+        processedData = [...response].sort((a, b) => {
+          const idA = parseInt(a.employeeId, 10) || 0;
+          const idB = parseInt(b.employeeId, 10) || 0;
+          return idA - idB;
+        });
+        
+        console.log('Data sorted by employeeId:', processedData);
+        setSalaryResults(processedData);
+        calculateMetrics(processedData);
+      }
       
       // Clear the file input after successful processing
       setFile(null);
@@ -350,8 +346,10 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Failed to process salary data:', err);
       setError('Failed to process salary data: ' + (err.message || ''));
+      setDataError(true);
     } finally {
       setProcessing(false);
+      setDataLoading(false);
     }
   };
 
@@ -740,7 +738,26 @@ const Dashboard = () => {
                     </TableHead>
                     <TableBody>
                       {salaryResults.map((row) => {
-                        const statusColor = getStatusColor(row.coefficient);
+                        // Get employeeName from different possible field names
+                        const employeeName = row.employeeName || row.name || '';
+                        
+                        // Handle coefficient properly with fallback to 0
+                        const coefficient = typeof row.coefficient === 'number' ? row.coefficient : 0;
+                        const statusColor = getStatusColor(coefficient);
+                        
+                        // Safely extract other fields with fallbacks
+                        const monthlySalary = row.monthlySalary || 0;
+                        const actualWorkedHours = row.actualWorkedHours || 0;
+                        const lateMarks = row.lateMarks || 0;
+                        const finalPayableSalary = row.finalPayableSalary || 0;
+                        
+                        console.log('Row data:', { 
+                          id: row.employeeId, 
+                          name: employeeName,
+                          coefficient: coefficient,
+                          salary: monthlySalary,
+                          finalSalary: finalPayableSalary
+                        });
                         
                         return (
                           <TableRow key={row.employeeId}>
@@ -748,28 +765,28 @@ const Dashboard = () => {
                               {row.employeeId}
                             </TableCell>
                             <TableCell>
-                              <Typography fontWeight="500">{row.employeeName}</Typography>
+                              <Typography fontWeight="500">{employeeName}</Typography>
                             </TableCell>
-                            <TableCell align="right">{formatCurrency(row.monthlySalary)}</TableCell>
+                            <TableCell align="right">{formatCurrency(monthlySalary)}</TableCell>
                             <TableCell align="right">
-                              <Tooltip title={`Actual: ${row.actualWorkedHours ? row.actualWorkedHours.toFixed(1) : '0.0'}, Expected: ${totalDays * 8}`}>
-                                <span>{row.actualWorkedHours ? row.actualWorkedHours.toFixed(1) : '0.0'} / {totalDays * 8}</span>
+                              <Tooltip title={`Actual: ${actualWorkedHours.toFixed(1)}, Expected: ${totalDays * 8}`}>
+                                <span>{actualWorkedHours.toFixed(1)} / {totalDays * 8}</span>
                               </Tooltip>
                             </TableCell>
                             <TableCell align="right">
                               <Typography fontWeight="500" color={`${statusColor}.main`}>
-                                {formatPercentage(row.coefficient)}
+                                {formatPercentage(coefficient)}
                               </Typography>
                             </TableCell>
-                            <TableCell align="right">{row.lateMarks}</TableCell>
+                            <TableCell align="right">{lateMarks}</TableCell>
                             <TableCell align="right">
                               <Typography fontWeight="700">
-                                {formatCurrency(row.finalPayableSalary)}
+                                {formatCurrency(finalPayableSalary)}
                               </Typography>
                             </TableCell>
                             <TableCell align="center">
                               <Chip 
-                                label={getStatusLabel(row.coefficient)}
+                                label={getStatusLabel(coefficient)}
                                 color={statusColor}
                                 size="small"
                                 sx={{ fontWeight: 500 }}
