@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useEmployeeData } from '../hooks/useEmployeeData';
+import React, { useState, useEffect, useRef } from 'react';
+import { salaryService } from '../services/api';
 import { 
   Box, 
-  Typography, 
+  Typography,
   Button, 
   Paper, 
   Table,
@@ -36,7 +36,8 @@ import PeopleIcon from '@mui/icons-material/People';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { salaryService } from '../services/api';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import GroupIcon from '@mui/icons-material/Group';
 // No need for isDemoMode in production
 
 // Styled components
@@ -146,22 +147,22 @@ const Dashboard = () => {
   const [daysLoading, setDaysLoading] = useState(false);
   const fileInputRef = useRef(null);
   
-  // Use React Query hook to fetch and cache employee data
-  const {
-    data: salaryResults,
-    isLoading: dataLoading,
-    isError: dataError,
-    refetch: refetchEmployeeData,
-    error: employeeDataError
-  } = useEmployeeData();
+  // State to hold processed salary data
+  const [salaryResults, setSalaryResults] = useState([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataError, setDataError] = useState(false);
 
   // Derived state for processed metrics from salary results
   const [processedData, setProcessedData] = useState(null);
   
   // Calculate processed metrics whenever salary results change
   useEffect(() => {
+    console.log('Salary results updated:', salaryResults);
     if (salaryResults && salaryResults.length > 0) {
+      console.log('Calculating metrics for', salaryResults.length, 'employees');
       calculateMetrics(salaryResults);
+    } else {
+      console.log('No salary results available yet');
     }
   }, [salaryResults]);
   
@@ -188,12 +189,7 @@ const Dashboard = () => {
     loadTotalDays();
   }, []);
   
-  // Display error from React Query if any
-  useEffect(() => {
-    if (employeeDataError) {
-      setError('Error loading employee data: ' + employeeDataError.message);
-    }
-  }, [employeeDataError]);
+  // Initial data loading can be removed since we now use the process endpoint data directly
 
   const handleFileChange = (e) => {
     console.log('File input changed:', e.target.files);
@@ -265,6 +261,10 @@ const Dashboard = () => {
 
   // Calculate metrics from salary results
   const calculateMetrics = (results) => {
+    if (!results || results.length === 0) {
+      setProcessedData(null);
+      return;
+    }
     const totalEmployees = results.length;
     const totalSalary = results.reduce((sum, item) => sum + item.finalPayableSalary, 0);
     const averageSalary = totalSalary / totalEmployees;
@@ -296,17 +296,17 @@ const Dashboard = () => {
   };
   
   const handleProcessSalary = async () => {
-    console.log('Process salary button clicked');
-    
     if (!file) {
-      setError('Please upload a file first');
+      setError('Please select a file to process');
       return;
     }
-
+    
     setProcessing(true);
+    setDataLoading(true);
     setError('');
-
-    // Create a form data object for the file upload
+    
+    console.log('Processing file:', file.name);
+    
     const formData = new FormData();
     formData.append('file', file);
 
@@ -315,22 +315,40 @@ const Dashboard = () => {
       
       // Use the salary service to process the file
       const response = await salaryService.processSalary(file, totalDays);
-      console.log('Salary processing completed successfully');
+      console.log('Salary processing response:', response);
       
-      // Refetch the employee data using React Query
-      // This will update the cache and trigger a re-render
-      await refetchEmployeeData();
+      // Sort the data by employeeId numerically
+      let processedData = [];
+      
+      if (response && Array.isArray(response)) {
+        // Sort the array by employeeId numerically
+        processedData = [...response].sort((a, b) => {
+          const idA = parseInt(a.employeeId, 10) || 0;
+          const idB = parseInt(b.employeeId, 10) || 0;
+          return idA - idB;
+        });
+        
+        console.log('Data sorted by employeeId:', processedData);
+        setSalaryResults(processedData);
+        calculateMetrics(processedData);
+      }
       
       // Clear the file input after successful processing
       setFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+      
+      // Show success message
+      setSuccessMessage('Salary data processed successfully!');
+      setTimeout(() => setSuccessMessage(''), 5000); // Clear after 5 seconds
     } catch (err) {
       console.error('Failed to process salary data:', err);
       setError('Failed to process salary data: ' + (err.message || ''));
+      setDataError(true);
     } finally {
       setProcessing(false);
+      setDataLoading(false);
     }
   };
 
@@ -364,7 +382,7 @@ const Dashboard = () => {
   
   // Function to handle bulk PDF download of all salary slips
   const handleBulkPdfDownload = async () => { // eslint-disable-line no-unused-vars
-    if (!salaryResults || salaryResults.length === 0) {
+    if (!salaryResults || !Array.isArray(salaryResults) || salaryResults.length === 0) {
       setError('No salary data to download');
       return;
     }
@@ -538,10 +556,49 @@ const Dashboard = () => {
               <Zoom in={true} timeout={500}>
                 <UploadCard>
                   <CardContent>
-                    <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {file ? `${(file.size / 1024).toFixed(2)} KB` : 'or click to browse'}
-                    </Typography>
+                    <Box 
+                      sx={{
+                        border: '2px dashed',
+                        borderColor: isDragging ? 'primary.main' : 'divider',
+                        borderRadius: 2,
+                        p: 3,
+                        mb: 2,
+                        textAlign: 'center',
+                        bgcolor: isDragging ? 'action.hover' : 'background.paper',
+                        transition: 'all 0.2s ease',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                          borderColor: 'primary.light'
+                        }
+                      }}
+                      onClick={handleFileUploadClick}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                    >
+                      {file ? (
+                        <>
+                          <CheckCircleIcon color="success" sx={{ fontSize: 40, mb: 1 }} />
+                          <Typography variant="subtitle1" gutterBottom fontWeight="medium">
+                            {file.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {(file.size / 1024).toFixed(2)} KB
+                          </Typography>
+                        </>
+                      ) : (
+                        <>
+                          <CloudUploadIcon sx={{ fontSize: 40, mb: 1, color: 'action.active' }} />
+                          <Typography variant="subtitle1" gutterBottom fontWeight="medium">
+                            Drop Excel file here
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            or click to browse
+                          </Typography>
+                        </>
+                      )}
+                    </Box>
                     
                     <input
                       type="file"
@@ -550,7 +607,6 @@ const Dashboard = () => {
                       accept=".xls,.xlsx"
                       style={{ display: 'none' }}
                     />
-                  </Box>
                   
                   <Box sx={{ mb: 3 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -658,8 +714,8 @@ const Dashboard = () => {
             )}
           </Grid>
           
-          {salaryResults.length > 0 && (
-            <Fade in={salaryResults.length > 0} timeout={1000}>
+          {salaryResults && salaryResults.length > 0 && (
+            <Fade in={!!salaryResults && salaryResults.length > 0} timeout={1000}>
               <Box sx={{ mt: 4 }}>
                 <Typography variant="h5" fontWeight="600" color="text.primary" gutterBottom>
                   Salary Results
@@ -681,7 +737,26 @@ const Dashboard = () => {
                     </TableHead>
                     <TableBody>
                       {salaryResults.map((row) => {
-                        const statusColor = getStatusColor(row.coefficient);
+                        // Get employeeName from different possible field names
+                        const employeeName = row.employeeName || row.name || '';
+                        
+                        // Handle coefficient properly with fallback to 0
+                        const coefficient = typeof row.coefficient === 'number' ? row.coefficient : 0;
+                        const statusColor = getStatusColor(coefficient);
+                        
+                        // Safely extract other fields with fallbacks
+                        const monthlySalary = row.monthlySalary || 0;
+                        const actualWorkedHours = row.actualWorkedHours || 0;
+                        const lateMarks = row.lateMarks || 0;
+                        const finalPayableSalary = row.finalPayableSalary || 0;
+                        
+                        console.log('Row data:', { 
+                          id: row.employeeId, 
+                          name: employeeName,
+                          coefficient: coefficient,
+                          salary: monthlySalary,
+                          finalSalary: finalPayableSalary
+                        });
                         
                         return (
                           <TableRow key={row.employeeId}>
@@ -689,28 +764,28 @@ const Dashboard = () => {
                               {row.employeeId}
                             </TableCell>
                             <TableCell>
-                              <Typography fontWeight="500">{row.employeeName}</Typography>
+                              <Typography fontWeight="500">{employeeName}</Typography>
                             </TableCell>
-                            <TableCell align="right">{formatCurrency(row.monthlySalary)}</TableCell>
+                            <TableCell align="right">{formatCurrency(monthlySalary)}</TableCell>
                             <TableCell align="right">
-                              <Tooltip title={`Actual: ${row.actualWorkedHours ? row.actualWorkedHours.toFixed(1) : '0.0'}, Expected: ${totalDays * 8}`}>
-                                <span>{row.actualWorkedHours ? row.actualWorkedHours.toFixed(1) : '0.0'} / {totalDays * 8}</span>
+                              <Tooltip title={`Actual: ${actualWorkedHours.toFixed(1)}, Expected: ${totalDays * 8}`}>
+                                <span>{actualWorkedHours.toFixed(1)} / {totalDays * 8}</span>
                               </Tooltip>
                             </TableCell>
                             <TableCell align="right">
                               <Typography fontWeight="500" color={`${statusColor}.main`}>
-                                {formatPercentage(row.coefficient)}
+                                {formatPercentage(coefficient)}
                               </Typography>
                             </TableCell>
-                            <TableCell align="right">{row.lateMarks}</TableCell>
+                            <TableCell align="right">{lateMarks}</TableCell>
                             <TableCell align="right">
                               <Typography fontWeight="700">
-                                {formatCurrency(row.finalPayableSalary)}
+                                {formatCurrency(finalPayableSalary)}
                               </Typography>
                             </TableCell>
                             <TableCell align="center">
                               <Chip 
-                                label={getStatusLabel(row.coefficient)}
+                                label={getStatusLabel(coefficient)}
                                 color={statusColor}
                                 size="small"
                                 sx={{ fontWeight: 500 }}

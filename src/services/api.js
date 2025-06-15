@@ -7,7 +7,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://salary-processor-
 const normalizedBaseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
 
 // Create axios instance with default config
-const api = axios.create({
+export const api = axios.create({
   baseURL: normalizedBaseUrl,
   headers: {
     'Content-Type': 'application/json',
@@ -18,12 +18,20 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    console.log('Request interceptor - URL:', config.url);
+    console.log('Token exists:', !!token);
+    
     if (token) {
+      // Add token to headers
       config.headers['Authorization'] = `Bearer ${token}`;
+      console.log('Authorization header set:', `Bearer ${token.substring(0, 15)}...`);
+    } else {
+      console.warn('No token found in localStorage for request to:', config.url);
     }
     return config;
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
@@ -49,12 +57,47 @@ export const salaryService = {
       url = `/salary/process?totalDays=${totalDays}`;
     }
     
+    console.log('Processing salary with URL:', url);
+    console.log('Total days:', totalDays);
+    
     const response = await api.post(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data.employeeResults || response.data;
+    
+    console.log('Salary processing API response:', response.data);
+    
+    // Helper function to map employee data with field name fallbacks
+    const mapEmployeeData = (employee) => ({
+      employeeId: employee.employeeId || employee.id || '',
+      employeeName: employee.employeeName || employee.name || '',
+      monthlySalary: employee.monthlySalary || employee.salary || 0,
+      actualWorkedHours: employee.actualWorkedHours || employee.workedHours || 0,
+      coefficient: employee.coefficient || employee.attendanceCoefficient || 0,
+      lateMarks: employee.lateMarks || employee.lateCount || 0,
+      finalPayableSalary: employee.finalPayableSalary || employee.finalSalary || 0
+    });
+    
+    // Handle different API response formats
+    let employeeArray = null;
+    
+    // Case 1: API returns array directly
+    if (response.data && Array.isArray(response.data)) {
+      employeeArray = response.data;
+    }
+    // Case 2: API returns object with employeeResults property
+    else if (response.data && response.data.employeeResults && Array.isArray(response.data.employeeResults)) {
+      employeeArray = response.data.employeeResults;
+    }
+    
+    // If we found an array in either format, map it
+    if (employeeArray) {
+      return employeeArray.map(mapEmployeeData);
+    }
+    
+    // Fallback
+    return response.data;
   },
   
   // Set the total working days
@@ -122,5 +165,13 @@ export const salaryService = {
       },
     });
     return response.data;
+  },
+  
+  // Generate and download PDF salary slips in bulk (combines all in one PDF)
+  generateBulkPdf: async () => {
+    const response = await api.get('/salary/bulk-pdf', {
+      responseType: 'blob', // Important for handling binary data
+    });
+    return response;
   },
 };
