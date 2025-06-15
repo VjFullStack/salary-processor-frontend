@@ -242,18 +242,7 @@ const Login = () => {
                 </form>
               </Grid>
               
-              <Grid item sx={{ mt: 3 }}>
-                <Box sx={{ 
-                  p: 2, 
-                  bgcolor: 'rgba(25, 118, 210, 0.05)', 
-                  borderRadius: 2,
-                  border: '1px dashed rgba(25, 118, 210, 0.3)'
-                }}>
-                  <Typography variant="body2" color="text.secondary" align="center">
-                    <strong>Demo credentials:</strong> admin / admin123
-                  </Typography>
-                </Box>
-              </Grid>
+
             </Grid>
           </LoginCard>
         </Fade>

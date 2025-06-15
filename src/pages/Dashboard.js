@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useEmployeeData } from '../hooks/useEmployeeData';
 import { 
   Box, 
   Typography, 
@@ -25,8 +26,7 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-
+  MenuItem
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -37,7 +37,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { salaryService } from '../services/api';
-import { isDemoMode } from '../context/AuthContext';
+// No need for isDemoMode in production
 
 // Styled components
 const DashboardContainer = styled(Box)(({ theme }) => ({
@@ -138,15 +138,32 @@ const StyledTableContainer = styled(TableContainer)(({ theme }) => ({
 const Dashboard = () => {
   const [file, setFile] = useState(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [salaryResults, setSalaryResults] = useState([]);
-  const [processedData, setProcessedData] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [processing, setProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
   const [totalDays, setTotalDays] = useState(30); // Default to 30 days
   const [daysLoading, setDaysLoading] = useState(false);
   const fileInputRef = useRef(null);
-  // const theme = useTheme();
+  
+  // Use React Query hook to fetch and cache employee data
+  const {
+    data: salaryResults,
+    isLoading: dataLoading,
+    isError: dataError,
+    refetch: refetchEmployeeData,
+    error: employeeDataError
+  } = useEmployeeData();
+
+  // Derived state for processed metrics from salary results
+  const [processedData, setProcessedData] = useState(null);
+  
+  // Calculate processed metrics whenever salary results change
+  useEffect(() => {
+    if (salaryResults && salaryResults.length > 0) {
+      calculateMetrics(salaryResults);
+    }
+  }, [salaryResults]);
   
   useEffect(() => {
     // Trigger fade-in animation after component mounts
@@ -168,10 +185,15 @@ const Dashboard = () => {
       }
     };
     
-    if (!isDemoMode()) {
-      loadTotalDays();
-    }
+    loadTotalDays();
   }, []);
+  
+  // Display error from React Query if any
+  useEffect(() => {
+    if (employeeDataError) {
+      setError('Error loading employee data: ' + employeeDataError.message);
+    }
+  }, [employeeDataError]);
 
   const handleFileChange = (e) => {
     console.log('File input changed:', e.target.files);
@@ -238,29 +260,9 @@ const Dashboard = () => {
       
       setError('');
       setFile(droppedFile);
-      
-      // In demo mode, automatically process the file after a short delay
-      if (isDemoMode()) {
-        setLoading(true);
-        setTimeout(() => {
-          processDemoData();
-          setLoading(false);
-        }, 1500); // Simulate processing time
-      }
     }
   };
 
-  // Mock data for demo mode
-  const mockSalaryData = {
-    employeeResults: [
-      { employeeId: 1, employeeName: 'John Doe', expectedHours: 160, actualWorkedHours: 165, monthlySalary: 5000, finalPayableSalary: 5156.25, lateMarks: 0, coefficient: 1.03 },
-      { employeeId: 2, employeeName: 'Jane Smith', expectedHours: 160, actualWorkedHours: 155, monthlySalary: 4800, finalPayableSalary: 4650, lateMarks: 1, coefficient: 0.97 },
-      { employeeId: 3, employeeName: 'Mike Johnson', expectedHours: 160, actualWorkedHours: 152, monthlySalary: 5200, finalPayableSalary: 4940, lateMarks: 2, coefficient: 0.95 },
-      { employeeId: 4, employeeName: 'Sarah Williams', expectedHours: 160, actualWorkedHours: 168, monthlySalary: 5500, finalPayableSalary: 5775, lateMarks: 0, coefficient: 1.05 },
-      { employeeId: 5, employeeName: 'David Brown', expectedHours: 160, actualWorkedHours: 140, monthlySalary: 4700, finalPayableSalary: 4112.5, lateMarks: 3, coefficient: 0.87 }
-    ]
-  };
-  
   // Calculate metrics from salary results
   const calculateMetrics = (results) => {
     const totalEmployees = results.length;
@@ -275,38 +277,6 @@ const Dashboard = () => {
       totalLateMarks
     });
   };
-  
-  // Process demo data function
-  const processDemoData = () => {
-    setSalaryResults(mockSalaryData.employeeResults);
-    calculateMetrics(mockSalaryData.employeeResults);
-  };
-  
-  // Auto-load mock data in demo mode
-  useEffect(() => {
-    if (isDemoMode()) {
-      // Simulate loading delay
-      const timer = setTimeout(() => {
-        // Set salary results
-        setSalaryResults(mockSalaryData.employeeResults);
-        
-        // Calculate summary data for metrics
-        const totalEmployees = mockSalaryData.employeeResults.length;
-        const totalSalary = mockSalaryData.employeeResults.reduce((sum, item) => sum + item.finalPayableSalary, 0);
-        const averageSalary = totalSalary / totalEmployees;
-        const totalLateMarks = mockSalaryData.employeeResults.reduce((sum, item) => sum + item.lateMarks, 0);
-        
-        // Set processed data with calculated metrics
-        setProcessedData({
-          totalEmployees,
-          totalSalary,
-          averageSalary,
-          totalLateMarks
-        });
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   // Handle total days change
   const handleTotalDaysChange = async (event) => {
@@ -327,207 +297,108 @@ const Dashboard = () => {
   
   const handleProcessSalary = async () => {
     console.log('Process salary button clicked');
-    console.log('File object:', file);
-    console.log('File name:', file?.name);
-    console.log('File type:', file?.type);
-    console.log('File size:', file?.size);
-    console.log('Using total days:', totalDays);
-    
-    // Log the token information to verify authentication
-    const token = localStorage.getItem('token');
-    console.log('Auth token exists:', !!token);
-    console.log('Auth token first 10 chars:', token ? token.substring(0, 10) + '...' : 'No token');
     
     if (!file) {
-      console.error('No file in state');
       setError('Please upload a file first');
       return;
     }
 
-    setLoading(true);
+    setProcessing(true);
     setError('');
 
     // Create a form data object for the file upload
     const formData = new FormData();
     formData.append('file', file);
-    
-    // Log all entries in the FormData (for debugging)
-    console.log('FormData created, entries:');
-    for (let pair of formData.entries()) {
-      console.log(pair[0] + ': ' + (pair[1] instanceof File ? 
-        `File(${pair[1].name}, ${pair[1].type}, ${pair[1].size} bytes)` : pair[1]));
-    }
 
     try {
-      console.log('Making API call to process salary with total days:', totalDays);
-      console.log('Making API call with file:', file.name);
-      console.log('API URL:', process.env.REACT_APP_API_URL || 'http://localhost:8080/api');
+      console.log('Processing salary data with total days:', totalDays);
       
-      // Make direct API call instead of using the service to debug
-      const apiUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:8080/api'}/salary/process?totalDays=${totalDays}`;
-      console.log('Full API URL:', apiUrl);
+      // Use the salary service to process the file
+      const response = await salaryService.processSalary(file, totalDays);
+      console.log('Salary processing completed successfully');
       
-      // For debugging, try a direct fetch request
-      console.log('Attempting direct fetch call to API...');
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: formData
-      });
+      // Refetch the employee data using React Query
+      // This will update the cache and trigger a re-render
+      await refetchEmployeeData();
       
-      console.log('API Response status:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+      // Clear the file input after successful processing
+      setFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
-      
-      const results = await response.json();
-      console.log('API response received:', results);
-      const employeeResults = results.employeeResults || results;
-      
-      // Debug coefficients
-      console.log('Coefficient debugging:');
-      employeeResults.forEach(emp => {
-        console.log(`Employee ${emp.employeeName}: Actual=${emp.actualWorkedHours}, Expected=${emp.expectedHours}, Coefficient=${emp.coefficient}`);
-        // Calculate what the coefficient should be
-        const calculatedCoeff = emp.actualWorkedHours / emp.expectedHours;
-        console.log(`Calculated coefficient should be: ${calculatedCoeff} (${(calculatedCoeff * 100).toFixed(2)}%)`);
-        
-        // Fix the coefficient if needed - this will directly fix the display
-        if (Math.abs((emp.coefficient * 100) - calculatedCoeff * 100) > 1) {
-          console.log(`Fixing coefficient from ${emp.coefficient} to ${calculatedCoeff}`);
-          emp.coefficient = calculatedCoeff;
-        }
-      });
-      
-      setSalaryResults(employeeResults);
-      
-      // Calculate summary data
-      const totalEmployees = employeeResults.length;
-      const totalSalary = employeeResults.reduce((sum, item) => sum + item.finalPayableSalary, 0);
-      const averageSalary = totalSalary / totalEmployees;
-      const totalLateMarks = employeeResults.reduce((sum, item) => sum + item.lateMarks, 0);
-      
-      setProcessedData({
-        totalEmployees,
-        totalSalary,
-        averageSalary,
-        totalLateMarks
-      });
     } catch (err) {
-      console.error('API call failed:', err);
-      console.error('Error details:', err.message, err.stack);
-      setError('Failed to process salary data. ' + (err.message || ''));
+      console.error('Failed to process salary data:', err);
+      setError('Failed to process salary data: ' + (err.message || ''));
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
 
   const handleDownloadPdf = async (employeeId) => {
     try {
-      setLoading(true);
+      setProcessing(true);
       
-      // Check if we're in demo mode
-      if (isDemoMode()) {
-        await new Promise(resolve => setTimeout(resolve, 800)); // Simulate download delay
-        
-        // Generate a simple PDF with employee data in demo mode
-        const employee = salaryResults.find(emp => emp.employeeId === employeeId);
-        if (!employee) {
-          throw new Error('Employee not found');
-        }
-        
-        // Create a simple PDF using Canvas and jsPDF (we simulate this)
-        simulatePdfDownload(employee);
-      } else {
-        const response = await salaryService.generatePdf(employeeId);
-        
-        // Create blob URL
-        const blob = new Blob([response.data], { type: 'application/pdf' });
-        const url = window.URL.createObjectURL(blob);
+      const response = await salaryService.generatePdf(employeeId);
+      
+      // Create blob URL
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
 
-        // Create temporary link to download file
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `salary_slip_${employeeId}.pdf`);
-        document.body.appendChild(link);
-        link.click();
+      // Create temporary link to download file
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `salary_slip_${employeeId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
 
-        // Clean up
-        link.parentNode.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      }
+      // Clean up
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading PDF:', error);
       setError('Error downloading PDF. Please try again.');
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
   
-  // Function to handle bulk PDF download - will be implemented in future releases
+  // Function to handle bulk PDF download of all salary slips
   const handleBulkPdfDownload = async () => { // eslint-disable-line no-unused-vars
     if (!salaryResults || salaryResults.length === 0) {
       setError('No salary data to download');
       return;
     }
     
-    setLoading(true);
+    setProcessing(true);
     setError('');
     
     try {
-      // Check if we're in demo mode
-      if (isDemoMode()) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
-        
-        // Create a simple text file with all employee data in demo mode
-        const textContent = salaryResults.map(employee => {
-          return `
-            SALARY SLIP - ${employee.employeeName}
-            ------------------
-            
-            Employee ID: ${employee.employeeId}
-            Name: ${employee.employeeName}
-            
-            Basic Salary: ${formatCurrency(employee.monthlySalary)}
-            Performance Coefficient: ${formatPercentage(employee.coefficient)}
-            Late Marks: ${employee.lateMarks}
-            
-            Hours Expected: ${employee.expectedHours ? employee.expectedHours.toFixed(1) : '0.0'}
-            Hours Worked: ${employee.actualWorkedHours ? employee.actualWorkedHours.toFixed(1) : '0.0'}
-            
-            Final Payable Salary: ${formatCurrency(employee.finalPayableSalary)}
-            
-            This is a demo PDF generated on ${new Date().toLocaleDateString()}
-            ==========================================
-          `;
-        }).join('\n');
-        
-        // Create a Blob with the text content
-        const blob = new Blob([textContent], { type: 'text/plain' });
-        const url = window.URL.createObjectURL(blob);
-        
-        // Create a download link
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'all_salary_slips.txt');
-        document.body.appendChild(link);
-        link.click();
-        
-        // Clean up
-        link.parentNode.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      } else {
-        // In real mode, call the bulk PDF generation API
-        await salaryService.generatePDFs(file);
-      }
+      // Call the real API to generate bulk PDFs
+      const response = await salaryService.generateBulkPdf();
+      
+      // Create blob URL from the API response
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a download link for the PDF file
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'all_salary_slips.pdf');
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      // Show success message
+      setSuccessMessage('Bulk PDFs downloaded successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error generating bulk PDFs:', error);
       setError('Error generating bulk PDFs. Please try again.');
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
   
@@ -664,154 +535,126 @@ const Dashboard = () => {
           
           <Grid container spacing={3}>
             <Grid item xs={12} md={5} lg={4}>
-              <Zoom in={fadeIn} timeout={800}>
-                <UploadCard elevation={3}>
-                  <CardContent sx={{ p: 3 }}>
-                    <Typography variant="h6" fontWeight="600" gutterBottom>
-                      Upload Attendance Data
+              <Zoom in={true} timeout={500}>
+                <UploadCard>
+                  <CardContent>
+                    <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {file ? `${(file.size / 1024).toFixed(2)} KB` : 'or click to browse'}
                     </Typography>
-                    <Divider sx={{ mb: 2 }} />
                     
-                    <FileUploadArea 
-                      onClick={handleFileUploadClick}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                      isDragging={isDragging}
-                    >
-                      <input
-                        type="file"
-                        accept=".xls,.xlsx"
-                        onChange={handleFileChange}
-                        hidden
-                        ref={fileInputRef}
-                      />
-                      
-                      <CloudUploadIcon 
-                        sx={{ 
-                          fontSize: 64, 
-                          color: isDragging ? 'primary.main' : 'primary.light', 
-                          mb: 2,
-                          transition: 'all 0.3s ease'
-                        }} 
-                      />
-                      
-                      <Typography variant="h6" gutterBottom color={isDragging ? 'primary.main' : 'inherit'}>
-                        {file ? file.name : 'Drag & Drop or Click to Upload'}
-                      </Typography>
-                      
-                      <Typography variant="body2" color="text.secondary">
-                        Upload monthly attendance Excel file (.xls or .xlsx)
-                      </Typography>
-                    </FileUploadArea>
-                    
-                    <Box mb={2}>
-                      <FormControl fullWidth variant="outlined" size="small">
-                        <InputLabel id="total-days-label">Total Working Days</InputLabel>
-                        <Select
-                          labelId="total-days-label"
-                          id="total-days"
-                          value={totalDays}
-                          onChange={handleTotalDaysChange}
-                          label="Total Working Days"
-                          disabled={daysLoading || loading}
-                        >
-                          {Array.from({length: 31}, (_, i) => i + 1).map(days => (
-                            <MenuItem key={days} value={days}>{days} days</MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Box>
-                    
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
-                        <ActionButton
-                          variant="contained"
-                          color="primary"
-                          fullWidth
-                          onClick={handleProcessSalary}
-                          disabled={!file || loading}
-                          startIcon={loading ? <CircularProgress size={20} /> : <PlayArrowIcon />}
-                        >
-                          Process Data ({totalDays} days)
-                        </ActionButton>
-                      </Grid>
-                    </Grid>
-                  </CardContent>
-                </UploadCard>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      accept=".xls,.xlsx"
+                      style={{ display: 'none' }}
+                    />
+                  </Box>
+                  
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Total Working Days:
+                    </Typography>
+                    <FormControl fullWidth variant="outlined" size="small">
+                      <Select
+                        value={totalDays}
+                        onChange={handleTotalDaysChange}
+                        disabled={daysLoading}
+                      >
+                        {[22, 23, 24, 25, 26, 27, 28, 29, 30, 31].map(days => (
+                          <MenuItem key={days} value={days}>{days} days</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                  
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    disabled={!file || processing || dataLoading}
+                    startIcon={processing ? <CircularProgress size={20} color="inherit" /> : <PlayArrowIcon />}
+                    onClick={handleProcessSalary}
+                    sx={{ py: 1 }}
+                  >
+                    {processing ? 'Processing...' : `Process Salary (${totalDays} days)`}
+                  </Button>
+                </CardContent>
+              </UploadCard>
+            </Zoom>
+          </Grid>
+          
+          {processedData && (
+            <Grid item xs={12} md={7} lg={8}>
+              <Zoom in={!!processedData} timeout={500}>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6} lg={3}>
+                    <MetricCard color="primary">
+                      <CardContent sx={{ p: 3 }}>
+                        <Box display="flex" alignItems="center" mb={1}>
+                          <PeopleIcon sx={{ mr: 1, opacity: 0.8 }} />
+                          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                            Employees
+                          </Typography>
+                        </Box>
+                        <Typography variant="h4" fontWeight="600">
+                          {processedData.totalEmployees}
+                        </Typography>
+                      </CardContent>
+                    </MetricCard>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6} lg={3}>
+                    <MetricCard color="secondary">
+                      <CardContent sx={{ p: 3 }}>
+                        <Box display="flex" alignItems="center" mb={1}>
+                          <AccountBalanceWalletIcon sx={{ mr: 1, opacity: 0.8 }} />
+                          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                            Total Payout
+                          </Typography>
+                        </Box>
+                        <Typography variant="h4" fontWeight="600">
+                          {formatCurrency(processedData.totalSalary)}
+                        </Typography>
+                      </CardContent>
+                    </MetricCard>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6} lg={3}>
+                    <MetricCard color="success">
+                      <CardContent sx={{ p: 3 }}>
+                        <Box display="flex" alignItems="center" mb={1}>
+                          <TrendingUpIcon sx={{ mr: 1, opacity: 0.8 }} />
+                          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                            Average Salary
+                          </Typography>
+                        </Box>
+                        <Typography variant="h4" fontWeight="600">
+                          {formatCurrency(processedData.averageSalary)}
+                        </Typography>
+                      </CardContent>
+                    </MetricCard>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6} lg={3}>
+                    <MetricCard color="warning">
+                      <CardContent sx={{ p: 3 }}>
+                        <Box display="flex" alignItems="center" mb={1}>
+                          <AccessTimeIcon sx={{ mr: 1, opacity: 0.8 }} />
+                          <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                            Late Marks
+                          </Typography>
+                        </Box>
+                        <Typography variant="h4" fontWeight="600">
+                          {processedData.totalLateMarks}
+                        </Typography>
+                      </CardContent>
+                    </MetricCard>
+                  </Grid>
+                </Grid>
               </Zoom>
             </Grid>
-            
-            {processedData && (
-              <Grid item xs={12} md={7} lg={8}>
-                <Zoom in={!!processedData} timeout={500}>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6} lg={3}>
-                      <MetricCard color="primary">
-                        <CardContent sx={{ p: 3 }}>
-                          <Box display="flex" alignItems="center" mb={1}>
-                            <PeopleIcon sx={{ mr: 1, opacity: 0.8 }} />
-                            <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                              Employees
-                            </Typography>
-                          </Box>
-                          <Typography variant="h4" fontWeight="600">
-                            {processedData.totalEmployees}
-                          </Typography>
-                        </CardContent>
-                      </MetricCard>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6} lg={3}>
-                      <MetricCard color="secondary">
-                        <CardContent sx={{ p: 3 }}>
-                          <Box display="flex" alignItems="center" mb={1}>
-                            <AccountBalanceWalletIcon sx={{ mr: 1, opacity: 0.8 }} />
-                            <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                              Total Payout
-                            </Typography>
-                          </Box>
-                          <Typography variant="h4" fontWeight="600">
-                            {formatCurrency(processedData.totalSalary)}
-                          </Typography>
-                        </CardContent>
-                      </MetricCard>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6} lg={3}>
-                      <MetricCard color="success">
-                        <CardContent sx={{ p: 3 }}>
-                          <Box display="flex" alignItems="center" mb={1}>
-                            <TrendingUpIcon sx={{ mr: 1, opacity: 0.8 }} />
-                            <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                              Average Salary
-                            </Typography>
-                          </Box>
-                          <Typography variant="h4" fontWeight="600">
-                            {formatCurrency(processedData.averageSalary)}
-                          </Typography>
-                        </CardContent>
-                      </MetricCard>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6} lg={3}>
-                      <MetricCard color="warning">
-                        <CardContent sx={{ p: 3 }}>
-                          <Box display="flex" alignItems="center" mb={1}>
-                            <AccessTimeIcon sx={{ mr: 1, opacity: 0.8 }} />
-                            <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                              Late Marks
-                            </Typography>
-                          </Box>
-                          <Typography variant="h4" fontWeight="600">
-                            {processedData.totalLateMarks}
-                          </Typography>
-                        </CardContent>
-                      </MetricCard>
-                    </Grid>
-                  </Grid>
-                </Zoom>
-              </Grid>
             )}
           </Grid>
           
@@ -879,7 +722,7 @@ const Dashboard = () => {
                                 variant="outlined"
                                 color="primary"
                                 onClick={() => handleDownloadPdf(row.employeeId)}
-                                disabled={loading}
+                                disabled={processing}
                                 startIcon={<DownloadIcon />}
                               >
                                 PDF
