@@ -11,9 +11,28 @@ export const useEmployeeData = () => {
 
   // Function to fetch employee data
   const fetchEmployeeData = async () => {
-    // The api instance already handles authorization headers via interceptors
-    const response = await api.get('/employee/salary');
-    return response.data;
+    try {
+      console.log('Attempting to fetch employee salary data');
+      // Try the /salary/employees endpoint instead - the API likely uses this path
+      const response = await api.get('/salary/employees');
+      console.log('Employee data fetched successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching employee data:', error.response?.status, error.message);
+      // If we get a 404, try the alternative endpoint
+      if (error.response?.status === 404) {
+        console.log('Trying alternative endpoint /employee/salary');
+        try {
+          const altResponse = await api.get('/employee/salary');
+          console.log('Alternative endpoint successful');
+          return altResponse.data;
+        } catch (altError) {
+          console.error('Alternative endpoint also failed');
+          throw altError;
+        }
+      }
+      throw error;
+    }
   };
 
   // Use React Query to fetch and cache data

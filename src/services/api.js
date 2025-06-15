@@ -7,7 +7,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://salary-processor-
 const normalizedBaseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
 
 // Create axios instance with default config
-const api = axios.create({
+export const api = axios.create({
   baseURL: normalizedBaseUrl,
   headers: {
     'Content-Type': 'application/json',
@@ -18,12 +18,20 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    console.log('Request interceptor - URL:', config.url);
+    console.log('Token exists:', !!token);
+    
     if (token) {
+      // Add token to headers
       config.headers['Authorization'] = `Bearer ${token}`;
+      console.log('Authorization header set:', `Bearer ${token.substring(0, 15)}...`);
+    } else {
+      console.warn('No token found in localStorage for request to:', config.url);
     }
     return config;
   },
   (error) => {
+    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
